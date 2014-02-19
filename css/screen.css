@@ -33,12 +33,19 @@ a {
 .error {
     color: red;
 }
-
-#map_canvas {
-    width: 100%;
-    height: 600px;
+#cityselector {
+	display:block;
 }
-
+#map_canvas {
+	float:left;
+    width: 70%;
+    height: 80%;
+}
+#marker_info {
+	margin-left: 5%;
+	width: 25%;
+	float:left;
+}
 img.worldcat {
     height: 40px;
     vertical-align: middle;

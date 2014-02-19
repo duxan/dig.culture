@@ -1,25 +1,25 @@
-var API_KEY = "0826ae9d2c064f8c8582859abf50f7d6"
-var map;
+﻿var map;
 var oms;
-var count = 0;
+var count_DPLA = 0;
+var count_Eu = 0;
 
 function main() {
     if (Modernizr.geolocation) {
-        navigator.geolocation.getCurrentPosition(makeMap);
+        navigator.geolocation.watchPosition(makeMap);
     } else {
         displayError();
     }
 }
 
 function makeMap(position) {
-    var lat = parseFloat(position.coords.latitude);
-    var lon = parseFloat(position.coords.longitude);
-    var loc = new google.maps.LatLng(lat, lon);
-
+    geo_lat = parseFloat(position.coords.latitude);
+    geo_lon = parseFloat(position.coords.longitude);
+    var loc = new google.maps.LatLng(geo_lat, geo_lon);
+	console.log('Geo API: ' + geo_lat + ', ' + geo_lon);
     var opts = {
         zoom: getZoom() - 4,
         center: loc,
-        mapTypeId: google.maps.MapTypeId.ROADMAP
+        mapTypeId: google.maps.MapTypeId.TERRAIN  
     };
 
     map = new google.maps.Map(document.getElementById("map_canvas"), opts);
@@ -34,30 +34,49 @@ function makeMap(position) {
         map: map,
         position: loc,
         icon: getCenterpin(),
-        title: 'Current Location',
+        title: 'Trenutna pozicija',
     });
-
-    google.maps.event.addListener(map, 'idle', lookupDocs);
+	lookupDocs();
+    google.maps.event.addListener(map, 'zoom_changed', function(){clearMarkers();lookupDocs();});
 }
 
 function lookupDocs() {
-    var center = map.getCenter();
-    var lat = center.jb;
-    var lon = center.kb;
-
-    var bounds = map.getBounds();
-    var sw = bounds.getSouthWest();
-    var ne = bounds.getNorthEast();
-    var nw = new google.maps.LatLng(ne.lat(), sw.lng());
-    var lonWidth = google.maps.geometry.spherical.computeDistanceBetween(ne, nw)
-    radius = parseInt(lonWidth / 2 / 1000) + "km";
-
-    url = "http://api.dp.la/v2/items?sourceResource.spatial.distance=" + radius + "&page_size=500&sourceResource.spatial.coordinates=" + lat + "," + lon +"&api_key=" + API_KEY;
-    console.log("fetching results from dpla: " + url);
-    $.ajax({url: url, dataType: "jsonp", success: displayDocs});
+	var scaler = map.getZoom()/10;
+	console.log('Zoom level: ' + map.getZoom());
+    radius = parseInt((((Math.abs(geo_lat-41.87)+Math.abs(geo_lat-46.17))*60/1.855/2)+((Math.abs(geo_lon-18.85)+Math.abs(geo_lon-23))*60/1.855/2))/scaler) + "km";
+	console.log('Fetch radius: ' + radius);
+	$.ajax({
+	type: "POST", 
+	url: "index.php",
+	data: ({
+		dpla: true,
+		radius: radius, 
+		lat: geo_lat, 
+		lon: geo_lon
+		}),
+	success: function(ajaxdata){
+		console.log(IsJson(ajaxdata));
+		displayDocs(JSON.parse(ajaxdata));
+		}
+	});
+	$.ajax({
+	type: "POST", 
+	url: "index.php",
+	data: ({
+		europeana: true,
+		radius: scaler, 
+		lat: geo_lat, 
+		lon: geo_lon
+		}),
+	success: function(ajaxdata){
+		console.log(IsJson(ajaxdata));
+		displayDocs(JSON.parse(ajaxdata));
+		}
+	});
 }
 
 function clearMarkers() {
+	$('#marker_info #eu').empty();
     var markers = oms.getMarkers();
     for (var i=0; i < markers.length; i++) {
 	markers[i].setMap(null);
@@ -66,18 +85,23 @@ function clearMarkers() {
 }
 
 function displayDocs(data) {
-    count = 0;
-    clearMarkers();
-    $.each(data.docs, displayDoc);
-    console.log('Points mapped: ' + count);
+    count_DPLA = 0;
+    count_Eu = 0;
+    //clearMarkers();
+	if (data.docs){
+		$.each(data.docs, displayDoc);
+		console.log('DPLA points mapped: ' + count_DPLA);
+	} else if (data.items) {
+		$.each(data.items, displayEuDoc);
+		console.log('Europeana points mapped: ' + count_Eu);
+	}
 }
 
 function displayDoc(index, doc) {
-    count += 1;
+    count_DPLA += 1;
     var loc; 
     $(doc.sourceResource.spatial).each(function(i,coord) {
 	var coords = coord.coordinates;
-        // TODO: We use the first set of coords we find, but it may not be the best
         if (coords && !loc) {
             coords = coords.split(",");
             var lat = parseFloat(coords[0]);
@@ -88,8 +112,17 @@ function displayDoc(index, doc) {
 
     // create a marker for the subject
     if (loc) {
-	    var source = doc.sourceResource;
+		var source = doc.sourceResource;
 	    var title = source.title;
+		// place images
+		if (doc.hasView && doc.hasView[0] && doc.hasView[0].format && doc.hasView[0].format.split('/')[0]=='image'){
+				img = '<a title="' + title + '" target="_new" href="' + doc.hasView[0].url + '"><img style="margin:2px;width:100px; height:100px;" src="' + doc.hasView[0].url + '"/></a>';
+				$('#marker_info #eu').append(img);
+			} else {
+				img='';
+			};
+			
+	    
 	    var description = '';
 	    if ('description' in source) {
                  description = source.description;
@@ -103,27 +136,82 @@ function displayDoc(index, doc) {
 
             var icon = getPushpin();
 
-            // TODO: Choose marker based on type of resource
             var marker = new google.maps.Marker({
                 map: map,
                 icon: icon,
                 position: loc,
-		title: title + ' -- ' + provider + date
+				title: title + ' -- ' + provider + date
             });
 
             var recordId = doc['@id'];
 	    // No link to the record included.  What a pain in the butt! Make our own
 	    var recordUrl = recordId.replace('http://dp.la/api/items','http://dp.la/item');
             var viewUrl = doc.isShownAt
-
+			
             // add a info window to the marker so that it displays when 
             // someone clicks on the marker
             var item = '<a target="_new" href="' + recordUrl + '">' + title + '</a>' + date;
             provider = '<a target="_new" href="' + viewUrl + '">' + provider + '</a>.';
-            var html = '<span class="map_info">' + item +' from ' + provider + ' '+description+'</span>';
+            var html = '<span class="map_info">' + item + ' from ' + provider + ' ' + description + '<br/>' + img + '</span>';
 	    marker.desc = html;
 	    oms.addMarker(marker);
+		//$('#marker_info #dpla').append(img);
         }
+}
+
+function displayEuDoc(index, doc) {
+    count_Eu += 1;
+	var lat_i;
+	var lon_i;
+    var loc; 
+if(doc.edmPlaceLatitude && doc.edmPlaceLongitude){
+	for (var i = 0; i < $(doc.edmPlaceLatitude).length; i++) {
+	var latit = parseFloat($(doc.edmPlaceLatitude)[i]);
+		if (latit!=0 && latit>=41.87 && latit<=46.17){
+		lat_i = i;
+		}
+	};
+	for (var i = 0; i < $(doc.edmPlaceLongitude).length; i++) {
+	var longit = parseFloat($(doc.edmPlaceLongitude)[i]);
+		if (longit!=0 && longit>=18.85 && longit<=23){
+		lon_i = i;
+		}
+	};
+	if (lat_i==lon_i){
+	lat_eu = $(doc.edmPlaceLatitude)[lat_i];
+	lon_eu = $(doc.edmPlaceLongitude)[lon_i];
+	};
+};
+    loc = new google.maps.LatLng(lat_eu, lon_eu);
+	
+	// create a marker for the subject
+    if (loc) {
+	var title = doc.title[0];
+	// place images
+	if (doc.type=="IMAGE" && doc.edmPreview){
+				preview = '<img style="margin:2px;width:100px; height:100px;" src="' + doc.edmPreview + '"/>';
+			} else {
+				preview = "";
+	};
+	if (index<=10){
+			$('#marker_info #eu').append('<a title="' + title + '" target="_new" href="' + doc.guid + '">' + preview + '</a>');
+	};
+	    
+
+            var icon = getPushpinEu();
+			
+            var marker = new google.maps.Marker({
+                map: map,
+                icon: icon,
+                position: loc,
+				title: title 
+            });
+           
+            provider = '<a target="_new" href="' + doc.guid + '">više u <strong>Europeana</strong></a>.';
+            var html = '<span class="map_info">' + title + '<br/>' + provider + '<a target="_new" href="' + doc.guid + '"><br/>' + preview + '</a></span>';
+	    marker.desc = html;
+	    oms.addMarker(marker);
+		}
 }
 
 function displayError() {
@@ -132,11 +220,15 @@ function displayError() {
 }
 
 function getPushpin() {
+    return getPin("http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png");
+}
+
+function getPushpinEu() {
     return getPin("http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png");
 }
 
 function getCenterpin() {
-    return getPin("http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png");
+    return getPin("http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png");
 }
 
 function getPin(url) {
@@ -150,4 +242,13 @@ function getZoom() {
     } else {
         return 12;
     }
+}
+
+function IsJson(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
 }
