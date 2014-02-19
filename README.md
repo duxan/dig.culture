@@ -1,8 +1,8 @@
-whatwhere is a pure html5 experiment (all html and javascript), 
-which uses the geo-location features in modern browsers to look up your 
-location, and then uses the DPLA API to see what books are available 
-for your current location.
+===========
+Started as Ed Summers <ehs@pobox.com> HTML5 project, we first managed server-side modification eith Europeana API included: [dig.culture](http://pantype.com/dig.culture/)
+
+Idea is to wrap fully client-side app (with both DPLA and Europeana API) to Phonegap.
 
 License: Public Domain
 
-Author: Ed Summers <ehs@pobox.com>
+Authors: Vedran Josipović <josipovichns@gmail.com> and Dušan Ranđelović <randjelovicdushan@gmail.com>
