@@ -1,4 +1,5 @@
-﻿var map;
+﻿var API_KEY = "0826ae9d2c064f8c8582859abf50f7d6";
+var map;
 var oms;
 var count_DPLA = 0;
 var count_Eu = 0;
@@ -34,45 +35,21 @@ function makeMap(position) {
         map: map,
         position: loc,
         icon: getCenterpin(),
-        title: 'Trenutna pozicija',
+        title: 'Current Location',
     });
-	lookupDocs();
-    google.maps.event.addListener(map, 'zoom_changed', function(){clearMarkers();lookupDocs();});
+	//lookupDocs();
+    //google.maps.event.addListener(map, 'zoom_changed', function(){clearMarkers();lookupDocs();});
 }
 
 function lookupDocs() {
 	var scaler = map.getZoom()/10;
 	console.log('Zoom level: ' + map.getZoom());
     radius = parseInt((((Math.abs(geo_lat-41.87)+Math.abs(geo_lat-46.17))*60/1.855/2)+((Math.abs(geo_lon-18.85)+Math.abs(geo_lon-23))*60/1.855/2))/scaler) + "km";
-	console.log('Fetch radius: ' + radius);
-	$.ajax({
-	type: "POST", 
-	url: "index.php",
-	data: ({
-		dpla: true,
-		radius: radius, 
-		lat: geo_lat, 
-		lon: geo_lon
-		}),
-	success: function(ajaxdata){
-		console.log(IsJson(ajaxdata));
-		displayDocs(JSON.parse(ajaxdata));
-		}
-	});
-	$.ajax({
-	type: "POST", 
-	url: "index.php",
-	data: ({
-		europeana: true,
-		radius: scaler, 
-		lat: geo_lat, 
-		lon: geo_lon
-		}),
-	success: function(ajaxdata){
-		console.log(IsJson(ajaxdata));
-		displayDocs(JSON.parse(ajaxdata));
-		}
-	});
+
+	url_dpla = 'http://api.dp.la/v2/items?sourceResource.spatial.distance=' + radius + '&page_size=500&sourceResource.spatial.coordinates=' + geo_lat + ',' + geo_lon + '&api_key=' + API_KEY;
+	url_eu = 'http://europeana.eu/api/v2/search.json?wskey=HPBt3VCip&query=Serbia+-indjija&qf=pl_wgs84_pos_lat%3A%5B' + Math.abs(geo_lat-2) + '+TO+' + Math.abs(geo_lat+2) + '%5D&qf=pl_wgs84_pos_long%3A%5B' + Math.abs(geo_lon-1) + '+TO+' + Math.abs(geo_lon+1) + '%5D&start=' + 20 + '&rows=100';
+	$.ajax({url: url_dpla, dataType: "jsonp", success: displayDocs});
+	$.ajax({url: url_eu, dataType: "jsonp", success: displayDocs});
 }
 
 function clearMarkers() {

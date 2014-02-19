@@ -1,78 +1,4 @@
-﻿<?php
-$API_URL = 'http://api.dp.la/v2/items';
-$API_KEY = "0826ae9d2c064f8c8582859abf50f7d6";
-//$out = fopen("out.json","wb"); //testiranje kakav json dobijam od dp.la + ostavlja fajl na serveru ya klijentsko parsiranje ako idem natu opciju
-
-if (isset($_POST['dpla'])){
-    $radius = $_POST['radius'];
-	$lat = $_POST['lat'];
-	$lon = $_POST['lon'];
-	
-	$curl_handle=curl_init();
-	curl_setopt($curl_handle, CURLOPT_URL,'http://api.dp.la/v2/items?sourceResource.spatial.distance='.$radius.'&page_size=500&sourceResource.spatial.coordinates='.$lat.','.$lon.'&api_key='.$API_KEY);
-	//curl_setopt($curl_handle, CURLOPT_FILE, $out); //testiranje kakav json dobijam od dp.la + snima fajl da ga parsiram klijentski
-	curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 0);
-	curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1); //baca reyultat u string, iskljuciv sa FILE opcijom - bey dobijam 1 na kraju json
-	//curl_setopt($curl_handle, CURLOPT_HTTPHEADERS,array('Content-Type: application/json')); //nepotrebno, samo definise header, ne en,decodira
-	curl_setopt($curl_handle , CURLOPT_HEADER , false);
-	
-	$query = curl_exec($curl_handle);
-	curl_close($curl_handle);
-	echo $query;
-	exit(); //obaveyno, inace dobijam ajaxresponse ceo html
-} else {
-}
-if (isset($_POST['europeana'])){
-	//lat: 41.87 - 46.17
-	//lon: 18.85 - 23
-	$lat = floatval($_POST['lat']);
-	$lon = floatval($_POST['lon']);
-	$scaler = floatval($_POST['radius']);
-	$near_lat = 0.05*$lat/$scaler;
-	$near_lon = 0.08*$lon/$scaler;
-	if ($scaler >= 1.3){
-		$rand = 1;
-	} elseif ($scaler <= 0.6) {
-		$rand = mt_rand(1,280);
-	} else {
-		switch ($scaler) 
-		{
-		case 0.7:
-			$rand = mt_rand(1,220);
-			break;
-		case 0.8:
-			$rand = mt_rand(1,180);
-			break;
-		case 0.9:
-			$rand = mt_rand(1,140);
-			break;
-		case 1:
-			$rand = mt_rand(1,100);
-			break;
-		case 1.1:
-			$rand = mt_rand(1,60);
-			break;
-		case 1.2:
-			$rand = mt_rand(1,20);
-			break;
-		};
-	};
-	$curl_handle=curl_init();
-	curl_setopt($curl_handle, CURLOPT_URL,'http://europeana.eu/api/v2/search.json?wskey=HPBt3VCip&query=Serbia+-indjija&qf=pl_wgs84_pos_lat%3A%5B'.floatval($lat-$near_lat).'+TO+'.floatval($lat+$near_lat).'%5D&qf=pl_wgs84_pos_long%3A%5B'.floatval($lon-$near_lon).'+TO+'.floatval($lon+$near_lon).'%5D&start='.$rand.'&rows=100');
-	//PREVOD India=Indjija!
-	//curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 0);
-	curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1); 
-	//curl_setopt($curl_handle, CURLOPT_ENCODING, 'UTF-8');
-	//curl_setopt($curl_handle , CURLOPT_HEADER , false);
-	//echo 'http://europeana.eu/api/v2/search.json?wskey=HPBt3VCip&query=Serbia+-indjija&qf=pl_wgs84_pos_lat%3A%5B'.floatval($lat-$near_lat).'+TO+'.floatval($lat+$near_lat).'%5D&qf=pl_wgs84_pos_long%3A%5B'.floatval($lon-$near_lon).'+TO+'.floatval($lon+$near_lon).'%5D&start='.$rand.'&rows=100';
-	$query = curl_exec($curl_handle);
-	curl_close($curl_handle);
-	echo $query;
-	exit(); 
-} else {
-}
-
-?>
+﻿<!DOCTYPE html>
 <html>
     <head>
         <title>dig.culture | Digitalno blago Srbije</title>
@@ -124,8 +50,8 @@ if (isset($_POST['europeana'])){
 					icon: getCenterpin(),
 					title: 'Trenutna pozicija',
 				});
-				lookupDocs();
-				google.maps.event.addListener(map, 'zoom_changed', function(){clearMarkers();lookupDocs();}); 
+				//lookupDocs();
+				//google.maps.event.addListener(map, 'zoom_changed', function(){clearMarkers();lookupDocs();}); 
 			}
 		  </script>
     </head>
